@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import type { Json } from "@shared/core";
 import {
     estimateEndpoint,
@@ -89,13 +89,36 @@ for (const engine of engines) {
                 assertEquals(result.usage.credits, {
                     default: base * (extra ? 2 : 1),
                 });
-                // Upper-bound estimate follows documented defaults, never product count.
-                assertEquals((await estimateEndpoint(unit, input)).credits, {
-                    default: base * (enabled ? 2 : 1),
+                // ChatGPT can return billable products even with shopping=false.
+                const estimate = await estimateEndpoint(unit, input);
+                assertEquals(estimate.credits, {
+                    default: base * (engine === "chatgpt" || enabled ? 2 : 1),
                 });
+                assert(
+                    result.usage.credits.default <= estimate.credits.default,
+                    "The admission estimate must cover successful settlement.",
+                );
             });
         }
     }
+}
+
+for (const actor of [undefined, "scraper.chatgpt"] as const) {
+    Deno.test(`shopping chatgpt: shopping=false reserves enrichment with actor=${actor}`, async () => {
+        const unit = await testSealedUnit("scrapeless#ai/chatgpt");
+        const estimate = await estimateEndpoint(unit, {
+            body: {
+                ...(actor === undefined ? {} : { actor }),
+                input: {
+                    prompt: "Synthetic product request",
+                    country: "US",
+                    shopping: false,
+                },
+            },
+        });
+        assertEquals(estimate.credits, { default: 0.004 });
+        assertEquals(estimate.evidence, { base: 1, shopping_enrichment: 1 });
+    });
 }
 
 Deno.test("AI Mode URL-only input is restored; estimate reserves enrichment ceiling", async () => {

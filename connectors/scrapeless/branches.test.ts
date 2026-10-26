@@ -9,16 +9,16 @@ import {
 } from "@shared/testing";
 
 const cases = [
-    ["amazon/rufus", "rufus-base", false, 0.003],
-    ["amazon/rufus", "rufus-questions", false, 0.003],
-    ["amazon/rufus", "rufus-sse", false, 0.003],
-    ["amazon/rufus", "rufus-no-asin", false, 0.003],
-    ["amazon/rufus", "rufus-asin", false, 0.003],
-    ["tiktok/user/work", "tiktok-page", false, 0.003],
-    ["ai/gemini", "gemini-buy-us", false, 0.0018],
-    ["ai/gemini", "gemini-buy-gb", false, 0.0018],
-    ["ai/aimode", "aimode-share", false, 0.0018],
-    ["ai/aimode", "aimode-resolved-share-url", false, 0.0018],
+    ["amazon/rufus", "rufus-base", 0.003],
+    ["amazon/rufus", "rufus-questions", 0.003],
+    ["amazon/rufus", "rufus-sse", 0.003],
+    ["amazon/rufus", "rufus-no-asin", 0.003],
+    ["amazon/rufus", "rufus-asin", 0.003],
+    ["tiktok/user/work", "tiktok-page", 0.003],
+    ["ai/gemini", "gemini-buy-us", 0.0018],
+    ["ai/gemini", "gemini-buy-gb", 0.0018],
+    ["ai/aimode", "aimode-share", 0.0018],
+    ["ai/aimode", "aimode-resolved-share-url", 0.0018],
 ] as const;
 
 async function fixture(name: string): Promise<Fixture> {
@@ -63,30 +63,21 @@ async function strict(id: string, recording: Fixture) {
     );
     return result;
 }
-for (const [id, name, failed, price] of cases) {
+for (const [id, name, price] of cases) {
     Deno.test(
         "branches " + name +
             ": exact native wire, retained payload and declared settlement",
         async () => {
             const f = await fixture(name);
             const result = await strict(id, f);
-            assertEquals(result.isProviderError, failed);
-            assertEquals(
-                result.usage.credits,
-                failed ? {} : { default: price },
-            );
-            assertEquals(result.httpStatus, failed ? 400 : 200);
+            assertEquals(result.isProviderError, false);
+            assertEquals(result.usage.credits, { default: price });
+            assertEquals(result.httpStatus, 200);
             const out = result.output as Record<string, Json>;
             assertEquals(
-                failed ? out.raw : out.provider_response,
+                out.provider_response,
                 f.calls.at(-1)!.res.body,
             );
-            if (failed) {
-                assertEquals(
-                    out.task_id,
-                    (f.calls[0].res.body as Record<string, Json>).task_id,
-                );
-            }
         },
     );
 }

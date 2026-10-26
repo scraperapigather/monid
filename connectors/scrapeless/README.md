@@ -45,9 +45,11 @@ omission. The documented shopping model is one base answer plus at most one
 extra base charge when eligible nonempty native `task_result.products` is
 present: **2x total, never per product**. Gemini defaults false; AI
 Mode/Overview default true; ChatGPT follows its documented response-based rule.
-Estimates reserve the possible 2x when applicable. Empty, null and absent
-product lists use base. Tests distinguish retained native responses from
-explicitly synthetic branches; declared usage is not a vendor invoice.
+ChatGPT estimates always reserve the possible 2x, even with shopping=false,
+because its enrichment is response-based. Other engines retain their input-gated
+estimates. Empty, null and absent product lists settle at base. Tests
+distinguish retained native responses from explicitly synthetic branches;
+declared usage is not a vendor invoice.
 
 Monid counts one successful engine run once; internal polls do not count as new
 submissions. Monid currently zero-settles error envelopes. This does **not**

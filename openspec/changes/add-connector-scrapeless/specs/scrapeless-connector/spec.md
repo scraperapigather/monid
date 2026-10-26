@@ -23,6 +23,9 @@ SHALL resolve through bounded allowlisted credential-free reads before one POST.
 Every endpoint SHALL declare its standard USD rate. TikTok's three operations
 SHALL use the owner-confirmed USD 0.003/request rate. Eligible AI shopping
 results SHALL count at most one extra base charge, not a charge per product.
+Shopping estimates SHALL cover the possible successful settlement. ChatGPT
+SHALL reserve the enrichment ceiling even with shopping=false, while final
+settlement SHALL still depend on nonempty returned product data.
 Internal polls SHALL NOT become new business submissions. Supplier account
 charging and Monid error settlement SHALL remain distinct; errors SHALL retain
 real status and context.

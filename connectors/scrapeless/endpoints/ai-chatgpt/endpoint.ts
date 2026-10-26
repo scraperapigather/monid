@@ -35,7 +35,8 @@ export default defineEndpoint({
                 "$.input.shopping",
             );
             const enabled = shopping === true ||
-                (shopping === undefined && actor !== "scraper.gemini");
+                (shopping === undefined && actor !== "scraper.gemini") ||
+                actor === "scraper.chatgpt";
             return { counts: { shopping_enrichment: enabled ? 1 : 0 } };
         },
         evidence: ({ data, utils }) => {
