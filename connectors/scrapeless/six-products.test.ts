@@ -1,11 +1,11 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { directTransport, Engine } from "@monid/connector-engine";
 import {
     estimateEndpoint,
     loadFixture,
     runEndpoint,
     testSealedUnit,
 } from "@shared/testing";
+import { runStrictReplay } from "./strict-replay.ts";
 
 const operations = [
     ["tiktok/user/detail", { unique_id: "example" }],
@@ -39,41 +39,11 @@ for (
     ] as const
 ) {
     Deno.test(`six-product scope ${id}: actual recorded result stays honest`, async () => {
-        const unit = await testSealedUnit("scrapeless#" + id);
         const fixture = await loadFixture(
             new URL(`./fixtures/recorded-six-${name}.json`, import.meta.url)
                 .pathname,
         );
-        assertEquals(
-            fixture.calls.filter((c) => c.req.method === "POST").length,
-            1,
-        );
-        let consumed = 0;
-        const loaded = await new Engine({
-            sleep: () => Promise.resolve(),
-            transport: directTransport({
-                params: () => Promise.resolve({ apiKey: "SYNTHETIC_KEY" }),
-                fetch: (url, init) => {
-                    const call = fixture.calls[consumed++];
-                    assert(call, "No unrecorded request or resubmission");
-                    assertEquals(String(url), call.req.url);
-                    assertEquals(init?.method ?? "GET", call.req.method);
-                    assertEquals(
-                        init?.body === undefined
-                            ? undefined
-                            : JSON.parse(String(init.body)),
-                        call.req.body,
-                    );
-                    return Promise.resolve(
-                        Response.json(call.res.body, {
-                            status: call.res.status,
-                        }),
-                    );
-                },
-            }),
-        }).load(unit);
-        const result = await loaded.run({ body: fixture.calls[0].req.body! });
-        assertEquals(consumed, fixture.calls.length);
+        const result = await runStrictReplay(id, fixture);
         assertEquals(result.isProviderError, failed);
         assertEquals(
             result.usage,
@@ -125,40 +95,7 @@ Deno.test("review continuation: four real chains preserve wire inputs, outputs a
                 )
                     .pathname,
             );
-            const unit = await testSealedUnit("scrapeless#" + id);
-            assertEquals(
-                fixture.calls.filter((call) => call.req.method === "POST")
-                    .length,
-                1,
-            );
-            let consumed = 0;
-            const loaded = await new Engine({
-                sleep: () => Promise.resolve(),
-                transport: directTransport({
-                    params: () => Promise.resolve({ apiKey: "SYNTHETIC_KEY" }),
-                    fetch: (url, init) => {
-                        const call = fixture.calls[consumed++];
-                        assert(call, "No unrecorded call or task resubmission");
-                        assertEquals(String(url), call.req.url);
-                        assertEquals(init?.method ?? "GET", call.req.method);
-                        assertEquals(
-                            init?.body === undefined
-                                ? undefined
-                                : JSON.parse(String(init.body)),
-                            call.req.body,
-                        );
-                        return Promise.resolve(
-                            Response.json(call.res.body, {
-                                status: call.res.status,
-                            }),
-                        );
-                    },
-                }),
-            }).load(unit);
-            const result = await loaded.run({
-                body: fixture.calls[0].req.body!,
-            });
-            assertEquals(consumed, fixture.calls.length);
+            const result = await runStrictReplay(id, fixture);
             assertEquals(result.isProviderError, false);
             assertEquals(result.usage, {
                 credits: { default: charge },

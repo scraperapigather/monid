@@ -1,53 +1,14 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { directTransport, Engine } from "@monid/connector-engine";
-import {
-    estimateEndpoint,
-    type Fixture,
-    loadFixture,
-    testSealedUnit,
-} from "@shared/testing";
+import { estimateEndpoint, loadFixture, testSealedUnit } from "@shared/testing";
 import type { Json } from "@shared/core";
 import { reviewCases } from "./review-cases.ts";
+import { runStrictReplay as strictRun } from "./strict-replay.ts";
 
 async function recording(name: string) {
     return await loadFixture(
         new URL(`./fixtures/${name}.json`, import.meta.url).pathname,
     );
-}
-async function strictRun(id: string, fixture: Fixture) {
-    const unit = await testSealedUnit("scrapeless#" + id);
-    let consumed = 0;
-    const loaded = await new Engine({
-        sleep: () => Promise.resolve(),
-        transport: directTransport({
-            params: () => Promise.resolve({ apiKey: "SYNTHETIC_KEY" }),
-            fetch: (url, init) => {
-                const call = fixture.calls[consumed++];
-                assert(call, "No unrecorded calls or task resubmission");
-                assertEquals(String(url), call.req.url);
-                assertEquals(init?.method ?? "GET", call.req.method);
-                assertEquals(
-                    init?.body === undefined
-                        ? undefined
-                        : JSON.parse(String(init.body)),
-                    call.req.body,
-                );
-                return Promise.resolve(
-                    Response.json(call.res.body, {
-                        status: call.res.status,
-                        headers: call.res.headers,
-                    }),
-                );
-            },
-        }),
-    }).load(unit);
-    const result = await loaded.run({ body: fixture.calls[0].req.body! });
-    assertEquals(consumed, fixture.calls.length);
-    assertEquals(
-        fixture.calls.filter((call) => call.req.method === "POST").length,
-        1,
-    );
-    return result;
 }
 for (const [id, name, price] of reviewCases) {
     Deno.test(`review ${id}: exact native wire, complete recorded result and one declared charge`, async () => {

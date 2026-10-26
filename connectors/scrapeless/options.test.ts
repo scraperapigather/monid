@@ -6,7 +6,7 @@ import {
     runEndpoint,
     testSealedUnit,
 } from "@shared/testing";
-import { directTransport, Engine } from "@monid/connector-engine";
+import { runStrictReplay } from "./strict-replay.ts";
 
 const cases = [
     ["google/search", "recorded-controls-google-offset-0"],
@@ -24,38 +24,8 @@ const cases = [
 const load = (name: string) =>
     loadFixture(new URL(`./fixtures/${name}.json`, import.meta.url).pathname);
 
-// Shared replay checks method/URL only. Also assert the actual compiled wire
-// body here, so a dropped/changed option cannot pass by replaying a good result.
 async function strictReplay(id: string, fixture: Fixture, body: Json) {
-    let consumed = 0;
-    const loaded = await new Engine({
-        sleep: () => Promise.resolve(),
-        transport: directTransport({
-            params: () => Promise.resolve({ apiKey: "test-key" }),
-            fetch: (url, init) => {
-                const call = fixture.calls[consumed++];
-                assert(call, "No unrecorded retries or requests allowed");
-                assertEquals(String(url), call.req.url);
-                assertEquals(init?.method ?? "GET", call.req.method);
-                assertEquals(
-                    init?.body === undefined
-                        ? undefined
-                        : JSON.parse(String(init.body)),
-                    call.req.body,
-                );
-                return Promise.resolve(Response.json(call.res.body, {
-                    status: call.res.status,
-                    headers: call.res.headers,
-                }));
-            },
-        }),
-    }).load(await testSealedUnit(`scrapeless#${id}`));
-    const result = await loaded.run({ body });
-    assertEquals(consumed, fixture.calls.length);
-    assertEquals(
-        fixture.calls.filter((c) => c.req.method === "POST").length,
-        1,
-    );
+    const result = await runStrictReplay(id, fixture, body);
     assertEquals(result.httpStatus, 200);
     assertEquals(result.isProviderError, false);
     assertEquals(result.usage, {

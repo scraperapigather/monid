@@ -1,5 +1,4 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import { directTransport, Engine } from "@monid/connector-engine";
 import type { Json } from "@shared/core";
 import {
     estimateEndpoint,
@@ -7,6 +6,7 @@ import {
     loadFixture,
     testSealedUnit,
 } from "@shared/testing";
+import { runStrictReplay as strict } from "./strict-replay.ts";
 
 const cases = [
     ["amazon/rufus", "rufus-base", 0.003],
@@ -28,40 +28,6 @@ async function fixture(name: string): Promise<Fixture> {
             import.meta.url,
         ).pathname,
     );
-}
-async function strict(id: string, recording: Fixture) {
-    let consumed = 0;
-    const loaded = await new Engine({
-        sleep: () => Promise.resolve(),
-        transport: directTransport({
-            params: () => Promise.resolve({ apiKey: "SYNTHETIC_KEY" }),
-            fetch: (url, init) => {
-                const call = recording.calls[consumed++];
-                assert(call, "No unrecorded call or second task");
-                assertEquals(String(url), call.req.url);
-                assertEquals(init?.method ?? "GET", call.req.method);
-                assertEquals(
-                    init?.body === undefined
-                        ? undefined
-                        : JSON.parse(String(init.body)),
-                    call.req.body,
-                );
-                return Promise.resolve(
-                    Response.json(call.res.body, {
-                        status: call.res.status,
-                        headers: call.res.headers,
-                    }),
-                );
-            },
-        }),
-    }).load(await testSealedUnit("scrapeless#" + id));
-    const result = await loaded.run({ body: recording.calls[0].req.body! });
-    assertEquals(consumed, recording.calls.length);
-    assertEquals(
-        recording.calls.filter((c) => c.req.method === "POST").length,
-        1,
-    );
-    return result;
 }
 for (const [id, name, price] of cases) {
     Deno.test(
